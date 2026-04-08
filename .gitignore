@@ -1,0 +1,20 @@
+# Datasets — too large and Kaggle-licensed
+data/
+*.csv.gz
+
+# Jupyter
+.ipynb_checkpoints/
+__pycache__/
+
+# Model artifacts
+*.joblib
+*.pkl
+model_artifacts/
+artifacts/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Colab runtime
+/content/
