@@ -1,124 +1,52 @@
-# Fraud Detection Using AI and Machine Learning
-### A Cross-Domain Study of Class Imbalance Strategies and Operational Feasibility
+# Fraud Detection using AI and Machine Learning
 
-**MSc Business Analytics Dissertation** · University of Surrey · January 2026  
-**Author:** Zeeshan Azeem Khalid (Student ID: 6905195)  
-**Supervisor:** Chris Turner, Lecturer in Business Analytics
+Reproducible research pipeline for imbalanced fraud classification on IEEE-CIS and PaySim. This revision prioritises train-fitted preprocessing, temporal evaluation, validation-only threshold selection, leakage-aware feature exclusions, and transparent cost sensitivity.
 
----
+## Integrity statement
+This branch adds reusable code and tests, not new verified model results. No revised scores are claimed. Run the experiments locally with the source datasets to generate metrics; raw datasets are not included here.
 
-## Key Results
+## Setup
+Python 3.10+ recommended.
 
-| Dataset | Model | ROC-AUC | PR-AUC | F1 | Precision@P70 | Recall@P70 |
-|---------|-------|---------|--------|----|---------------|------------|
-| IEEE-CIS | XGBoost | 0.9034 | 0.5513 | 0.5390 | 0.6385 | 0.4663 |
-| **PaySim** | **XGBoost** | **0.9998** | **0.9506** | **0.8089** | **0.7000** | **0.9367** |
+    python -m venv .venv
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
 
-Bootstrap 95% CI (XGBoost, IEEE-CIS): PR-AUC [0.538, 0.565] · ROC-AUC [0.898, 0.908]
+Datasets:
+- IEEE-CIS: https://www.kaggle.com/competitions/ieee-fraud-detection/data
+- PaySim: https://www.kaggle.com/datasets/ealaxi/paysim1
 
-**Core finding:** Cost-sensitive learning (XGBoost `scale_pos_weight`) outperforms SMOTE in operational settings — delivering higher fraud capture at precision-constrained thresholds with better generalisation and more stable score distributions. SMOTE inflates apparent metrics but underperforms once precision constraints and investigation capacity are applied.
+Keep data local; do not commit CSVs.
 
----
+## Run
+IEEE-CIS (identity merge optional, validated many-to-one):
+    
+    python fraud_detection.py --dataset ieee --csv data/train_transaction.csv --identity-csv data/train_identity.csv --output-dir outputs/ieee
 
-## Overview
+PaySim:
 
-This dissertation investigates AI/ML approaches to transaction-level fraud detection across two benchmark datasets — the high-dimensional anonymised IEEE-CIS dataset and the behaviourally realistic PaySim simulator. The study evaluates how class imbalance handling strategies influence model performance, stability, and operational feasibility under real-world precision constraints.
+    python fraud_detection.py --dataset paysim --csv data/PS_20174392719_1491204439457_log.csv --output-dir outputs/paysim
 
-**Research Questions:**
-- **RQ1:** How do SMOTE vs cost-sensitive learning compare under operational (precision-constrained) conditions?
-- **RQ2:** Do models trained on IEEE-CIS transfer reliably to PaySim without adaptation?
-- **RQ3:** How useful are SHAP explanations on anonymised fraud data for operational decision-making?
+Optional scenario-cost assumptions:
 
----
-
-## Repository Structure
-
-```
-.
-├── notebooks/
-│   └── fraud_detection_pipeline.ipynb   # Full pipeline (IEEE-CIS + PaySim + SHAP)
-├── figures/                              # All dissertation figures (PNG, 300 dpi)
-│   ├── ieee_xgb_roc.png
-│   ├── ieee_xgb_pr.png
-│   ├── Figure_6.1_feature_importance_top20_xgb.png
-│   ├── Figure_6.2_shap_summary_xgb.png
-│   ├── executive_summary_panel.png
-│   └── ...  (33 figures total)
-├── reports/                              # Metrics CSVs + LaTeX tables
-│   ├── ieee_metrics.csv                  # All models × thresholds (IEEE-CIS)
-│   ├── paysim_metrics.csv                # Confirmed PaySim XGBoost results
-│   ├── cross_dataset_comparison.csv      # Corrected cross-domain comparison
-│   ├── ieee_bootstrap_ci.csv             # Bootstrap CI (n=250 resamples)
-│   ├── ieee_business_metrics.csv         # Business cost model (TP/FP/FN costs)
-│   ├── ieee_paired_bootstrap_diffs.csv   # Paired significance tests
-│   ├── reproducibility_results_3runs.csv # 3-seed stability check
-│   └── ...  (26 report files total)
-├── requirements.txt
-├── .gitignore
-└── README.md
-```
-
----
+    python fraud_detection.py --dataset paysim --csv data/paysim.csv --fp-cost 10 --fn-cost 100 --output-dir outputs/paysim
 
 ## Methodology
+- Sort by TransactionDT (IEEE-CIS) or step (PaySim), then split rows chronologically into 60% train, 20% validation and 20% test. This is a simple temporal holdout, not a guarantee of production generalisation.
+- Fit median imputation and one-hot categorical encoding on training data only. Unknown categories are ignored safely; categorical codes are not independently assigned to train and validation.
+- Exclude transaction IDs and time-order columns from predictors by default.
+- PaySim excludes nameOrig, nameDest, isFlaggedFraud, newbalanceOrig and newbalanceDest by default. The balances are post-transaction fields; isFlaggedFraud is an existing simulator flag. The --include-post-event option is diagnostic only and unsuitable for a pre-authorisation model.
+- Fit the model on training data, choose F1 and minimum-precision thresholds on validation predictions, freeze both, and evaluate them on the later test set.
+- Report average precision (PR ranking metric), ROC-AUC and threshold-specific precision/recall/F1 plus confusion counts. Threshold metrics in each row are calculated from the same predictions.
+- If the precision constraint is not achieved on validation, the output explicitly says so. Validation precision is not a guarantee of test precision.
 
-| Component | Detail |
-|-----------|--------|
-| Framework | CRISP-DM |
-| IEEE-CIS sample | Stratified 15% (memory-constrained; fraud rate preserved) |
-| Imputation | Sentinel value −999 (preserves informative missingness) |
-| Encoding | Frequency encoding for high-cardinality categoricals |
-| Time features | Cyclic sin/cos encoding of hour-of-day and day-of-week |
-| Models | Logistic Regression · Random Forest · XGBoost |
-| Imbalance strategies | Baseline · SMOTE · Cost-sensitive (scale_pos_weight / class_weight) |
-| Primary metric | PR-AUC (extreme class imbalance) |
-| Operational threshold | P ≥ 70% precision-constrained |
-| Statistical validation | Bootstrap CI (n=250) · Paired tests · 3-seed reproducibility |
+## Cost sensitivity, not ROI
+The calculation is false positives × assumed FP cost + false negatives × assumed FN cost. Costs are user-supplied scenario assumptions, not measured operational cost, profit, savings or ROI. Document the basis and sensitivity range before making business claims.
 
----
+## Tests
+    python -m pytest -q
 
-## Datasets
+Tests use synthetic data and do not require the full datasets. Passing unit tests does not establish model performance. The XGBoost baseline is not a completed hyperparameter search. PaySim is synthetic and IEEE-CIS is an anonymised competition dataset; neither establishes generalisation to a real institution or future production period.
 
-**Not included** — download from Kaggle and place in `data/` (or update `DATA_DIR` in Cell 1).
-
-| Dataset | Source | Rows | Fraud Rate |
-|---------|--------|------|------------|
-| IEEE-CIS Fraud Detection | [Kaggle](https://www.kaggle.com/c/ieee-fraud-detection) | ~590k | 3.5% |
-| PaySim | [Kaggle](https://www.kaggle.com/datasets/ealaxi/paysim1) | 6.36M | 0.13% |
-| Google Drive (dissertation copies) | [Drive folder](https://drive.google.com/drive/folders/1YQTSBRXcNG28IMenowAqXdZqHSNqiAlR?usp=drive_link) | — | — |
-
----
-
-## Quick Start (Google Colab)
-
-```python
-# 1. Open notebooks/fraud_detection_pipeline.ipynb in Colab
-# 2. Mount Drive and set DATA_DIR to your dataset folder (Cell 1)
-# 3. Run all cells — outputs write to figures/ and reports/
-```
-
-All randomness uses `RANDOM_STATE = 42`. Reproducibility across seeds 42–44 confirmed (F1 variance < 0.01).
-
----
-
-## Post-Submission Bug Fix
-
-The original **Cell 28** (cross-dataset comparison table) showed **NaN** for PaySim's F1 / Precision / Recall columns. Root cause: `paysim_metrics.csv` stores columns as `f1@f1thr` / `precision@p70thr` / `recall@p70thr`, but the join expected `f1` / `precision` / `recall`. The mismatch produced silent NaN values.
-
-**The dissertation narrative was unaffected** — PaySim metrics were cited correctly throughout the text and figures. Cell 28 has been corrected in this repository, and a new **"Confirmed Results"** cell documents the verified numbers.
-
----
-
-## Citation
-
-```bibtex
-@mastersthesis{khalid2026fraud,
-  author  = {Khalid, Zeeshan Azeem},
-  title   = {Fraud Detection Using AI and Machine Learning: A Cross-Domain Study
-             of Class Imbalance Strategies and Operational Feasibility},
-  school  = {University of Surrey},
-  year    = {2026},
-  month   = {January},
-  type    = {MSc Dissertation},
-}
-```
+## Outputs
+The run creates metrics.json, test_predictions.csv and model.joblib in the selected output directory. Do not deploy without independent validation, monitoring, privacy review and operational assessment.
