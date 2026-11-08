@@ -11,8 +11,9 @@
 
 | Dataset | Model | ROC-AUC | PR-AUC | F1 | Precision@P70 | Recall@P70 |
 |---------|-------|---------|--------|----|---------------|------------|
-| IEEE-CIS | XGBoost | 0.9034 | 0.5513 | 0.5390 | 0.6385 | 0.4663 |
-| **PaySim** | **XGBoost** | **0.9998** | **0.9506** | **0.8089** | **0.7000** | **0.9367** |
+| IEEE-CIS | XGBoost | 0.9034 | 0.5513 | 0.5390 | 0.7001 | 0.4293 |
+| PaySim, as submitted (leakage-affected, see audit) | XGBoost | 0.9998 | 0.9506 | 0.8089 | 0.7000 | 0.9367 |
+| PaySim, leakage-safe temporal test | XGBoost | 0.9504 | 0.4186 | 0.3821 | 0.6319 | 0.3540 |
 
 Bootstrap 95% CI (XGBoost, IEEE-CIS): PR-AUC [0.538, 0.565] · ROC-AUC [0.898, 0.908]
 
@@ -106,6 +107,28 @@ All randomness uses `RANDOM_STATE = 42`. Reproducibility across seeds 42–44 co
 The original **Cell 28** (cross-dataset comparison table) showed **NaN** for PaySim's F1 / Precision / Recall columns. Root cause: `paysim_metrics.csv` stores columns as `f1@f1thr` / `precision@p70thr` / `recall@p70thr`, but the join expected `f1` / `precision` / `recall`. The mismatch produced silent NaN values.
 
 **The dissertation narrative was unaffected** — PaySim metrics were cited correctly throughout the text and figures. Cell 28 has been corrected in this repository, and a new **"Confirmed Results"** cell documents the verified numbers.
+
+---
+
+## Post-Submission Audit
+
+The submitted PaySim model used `oldbalanceOrg`, `newbalanceOrig`, `oldbalanceDest`, `newbalanceDest` and `isFlaggedFraud`. PaySim's documentation warns against the balance fields for fraud detection because fraudulent transactions are annulled, and `isFlaggedFraud` is the output of a simulated rule. The 0.9998 ROC-AUC should not be read as real detection ability.
+
+The notebook now reports PaySim without those fields, on time-ordered train, validation and test periods, and saves a comparison to `reports/paysim_leakage_audit.csv`.
+
+| Run (XGBoost, 6,362,620 rows) | ROC-AUC | PR-AUC | F1 | Precision (P70 threshold) | Recall (P70 threshold) | Test frauds / rows |
+|---|---|---|---|---|---|---|
+| A. Submitted features, random split (audit re-run) | 0.9998 | 0.9543 | 0.8139 | 0.7000 | 0.9411 | 2,053 / 1,590,655 |
+| B. Leakage fields removed, random split | 0.9511 | 0.3481 | 0.2353 | 0.7008 | 0.2703 | 2,053 / 1,590,655 |
+| C. Leakage fields removed, time-ordered test (reported) | 0.9504 | 0.4186 | 0.3821 | 0.6319 | 0.3540 | 4,006 / 918,617 |
+
+Removing the fields cut PR-AUC from 0.9543 to 0.3481 on the same split. Fraud is far more common in the final time period (0.44% of rows, against 0.08% in training), so Run C's PR-AUC is not directly comparable with Run B's and benefits from the higher base rate. Run A differs slightly from the submitted 0.9506 PR-AUC. Only the PaySim section was re-run for this audit, so IEEE-CIS figures remain those of the submitted run and do not yet reflect the category-encoding fix.
+
+Other corrections:
+- The IEEE-CIS Precision and Recall @P70 columns previously showed F1-optimal values. They now show the P>=70 values.
+- Category codes are now learned from training data and reused, rather than rebuilt for each frame.
+
+Remaining limitations: IEEE-CIS uses a random stratified split with thresholds tuned on the evaluation set, and the SMOTE comparison uses a fixed threshold.
 
 ---
 
