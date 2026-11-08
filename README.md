@@ -34,6 +34,8 @@ This dissertation investigates AI/ML approaches to transaction-level fraud detec
 
 ## Repository Structure
 
+> The notebook now sits at the repository root and regenerates `figures/` and `reports/` when run. The original dissertation outputs are archived as `fraud_detection_repo.zip` in commit abd9611.
+
 ```
 .
 ├── notebooks/
