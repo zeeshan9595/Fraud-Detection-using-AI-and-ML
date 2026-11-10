@@ -21,6 +21,18 @@ Bootstrap 95% CI (XGBoost, IEEE-CIS): PR-AUC [0.538, 0.565] · ROC-AUC [0.898, 0
 
 ---
 
+## Who uses this, and what decision it changes
+
+**Users:** fraud operations analysts and the risk manager who sets alert policy.
+
+**Decision:** which transactions to hold for review, given a fixed number of analyst hours. A model score only becomes useful once it is turned into a threshold.
+
+**The trade-off:** a lower threshold catches more fraud but holds more genuine customers, adding friction and complaints. A higher one misses fraud. So the threshold is set on validation data against analyst capacity, not tuned on the test set, and results are reported as precision and recall at that operating point plus PR-AUC, not accuracy or ROC-AUC alone.
+
+**What the audit changed:** on leakage-free, time-ordered PaySim data, the honest operating point catches about 35% of fraud with about 63% of alerts being real fraud. That is the figure a fraud team could plan around; the original near-perfect scores were not.
+
+**Next steps for a real deployment:** cost each missed fraud and each false hold, size the alert queue to team capacity, and monitor precision weekly as fraud patterns drift.
+
 ## Overview
 
 This dissertation investigates AI/ML approaches to transaction-level fraud detection across two benchmark datasets — the high-dimensional anonymised IEEE-CIS dataset and the behaviourally realistic PaySim simulator. The study evaluates how class imbalance handling strategies influence model performance, stability, and operational feasibility under real-world precision constraints.
