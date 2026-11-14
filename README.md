@@ -2,7 +2,7 @@
 ### A Cross-Domain Study of Class Imbalance Strategies and Operational Feasibility
 
 **MSc Business Analytics Dissertation** · University of Surrey · January 2026  
-**Author:** Zeeshan Azeem Khalid (Student ID: 6905195)  
+**Author:** Zeeshan Azeem Khalid  
 **Supervisor:** Chris Turner, Lecturer in Business Analytics
 
 ---
